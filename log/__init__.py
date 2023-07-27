@@ -2,6 +2,8 @@ import time
 
 from loguru import logger
 from rich.console import Console
+from rich.logging import RichHandler
+import logging
 
 last_called = None
 
