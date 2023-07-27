@@ -5,50 +5,31 @@ from rich.console import Console
 
 last_called = None
 
-def has_been_called_this_second():
-    global last_called
-    current_time = time.time()
-    current_second = int(current_time)
-    if last_called == current_second:
-        return True
-    else:
-        last_called = current_second
-        return False
+class InterceptHandler(logging.Handler):
+        def emit(self, record):
+            # Get corresponding Loguru level if it exists.
+                try:
+                    level = logger.level(record.levelname).name
+                except ValueError:
+                    level = record.levelno
 
-def log_formatter(record: dict) -> str:
-    """Log message formatter"""
+                # Find caller from where originated the logged message.
+                frame, depth = sys._getframe(6), 6
+                
+                while frame and frame.f_code.co_filename == logging.__file__:
+                    frame = frame.f_back
+                    depth += 1
 
-    color_map = {
-        'TRACE': 'dim blue',
-        'DEBUG': 'cyan',
-        'INFO': 'blue',
-        'SUCCESS': 'green',
-        'WARNING': 'yellow',
-        'ERROR': 'red',
-        'CRITICAL': 'white on red'
-    }
+                logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
-    color = color_map.get(record['level'].name)
-
-    level_map = {
-        'TRACE'   : f'   [{color}]{{level}}[/{color}]',
-        'DEBUG'   : f'   [{color}]{{level}}[/{color}]',
-        'INFO'    : f'    [{color}]{{level}}[/{color}]',
-        'SUCCESS' : f' [{color}]{{level}}[/{color}]',
-        'WARNING' : f' [{color}]{{level}}[/{color}]',
-        'ERROR'   : f'   [{color}]{{level}}[/{color}]',
-        'CRITICAL': f'[{color}]{{level}}[/{color}]'
-    }
-    level = level_map.get(record['level'].name)
-    printtime = "                   " if has_been_called_this_second() else "[u][dim cyan]{time:YYYY/MM/DD HH:mm:ss}[/dim cyan][/u]"
-    return (
-        printtime+'  '+level+' | - {message}'
-    )
+logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
 console = Console()
 logger.remove()
 logger.add(
-    console.print,
-    format=log_formatter,
+    RichHandler(),
+    format="{message}",
     colorize=True,
 )
+
+logger.configure({"extra": {"markup": True}})
